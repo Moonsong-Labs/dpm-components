@@ -1,0 +1,8 @@
+packages:
+  - ./interfaces
+  - ./main
+  - ./test
+
+components:
+  - name: hello-world
+    path: ../../components/hello-world
