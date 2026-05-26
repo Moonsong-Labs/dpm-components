@@ -1,0 +1,7 @@
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
+  commands:
+    - path: ./bin/hello-world
+      name: hello-world
+      desc: Print a hello-world message from a local dpm component
