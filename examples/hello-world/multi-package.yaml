@@ -2,7 +2,6 @@ packages:
   - ./interfaces
   - ./main
   - ./test
-  - ./trace-probe
 
 components:
   - name: hello-world

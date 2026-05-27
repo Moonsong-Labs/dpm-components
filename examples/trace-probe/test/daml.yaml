@@ -2,9 +2,12 @@
 # https://docs.digitalasset.com/build/3.5/dpm/configuration.html#project-configuration
 
 sdk-version: 3.5.1-rc3
-name: hello-world-trace-probe
+name: trace-probe-test
 source: daml
-version: 0.0.1
+version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../main/.daml/dist/trace-probe-main-1.0.0.dar

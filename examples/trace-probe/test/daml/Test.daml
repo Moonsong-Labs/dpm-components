@@ -1,0 +1,19 @@
+module Test where
+
+import Daml.Script
+import qualified TraceProbe
+
+main : Script ()
+main = do
+  operator <- allocateParty "TraceOperator"
+  counterparty <- allocateParty "TraceCounterparty"
+
+  probeCid <- operator `submit` createCmd TraceProbe.Probe with
+    operator
+    counterparty
+    label = "test probe"
+
+  _resultCid <- counterparty `submit` exerciseCmd probeCid TraceProbe.Accept with
+    note = "accepted"
+
+  pure ()
