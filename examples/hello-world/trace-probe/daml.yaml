@@ -1,0 +1,10 @@
+# for config file options, refer to
+# https://docs.digitalasset.com/build/3.5/dpm/configuration.html#project-configuration
+
+sdk-version: 3.5.1-rc3
+name: hello-world-trace-probe
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib

@@ -1,0 +1,30 @@
+module TraceProbe where
+
+template Probe
+  with
+    operator : Party
+    counterparty : Party
+    label : Text
+  where
+    signatory operator
+    observer counterparty
+
+    choice Accept : ContractId ProbeResult
+      with
+        note : Text
+      controller counterparty
+      do
+        create ProbeResult with
+          operator
+          counterparty
+          label
+          note
+
+template ProbeResult
+  with
+    operator : Party
+    counterparty : Party
+    label : Text
+    note : Text
+  where
+    signatory operator, counterparty
