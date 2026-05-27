@@ -1,2 +1,2 @@
-/.daml
-/log
+.daml/
+log/
