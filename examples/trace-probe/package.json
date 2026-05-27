@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "trace:sandbox": "bun scripts/capture.ts sandbox",
+    "sandbox": "bun scripts/sandbox.ts start"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "scenario": "sandbox",
+  "ledger": "localhost:6865",
+  "plaintext": true,
+  "auth": {
+    "mode": "none"
+  },
+  "uploadDar": false,
+  "parties": {
+    "operatorHint": "TraceOperator",
+    "counterpartyHint": "TraceCounterparty"
+  },
+  "submitLedgerRole": "single"
+}

@@ -1,2 +1,6 @@
 .daml/
-log/
+/node_modules
+/fixtures/**/*.json
+/fixtures/**/*.log
+/fixtures/**/*.local.json
+/log
