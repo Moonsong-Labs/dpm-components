@@ -31,10 +31,6 @@ type TransactionResponse = {
 	};
 };
 
-function assertNever(value: never): never {
-	throw new Error(`Unhandled variant: ${JSON.stringify(value)}`);
-}
-
 async function readJson<T>(path: string): Promise<T> {
 	return (await Bun.file(path).json()) as T;
 }
@@ -256,7 +252,9 @@ async function localNetAuthMode(): Promise<LocalNetAuthMode> {
 		case "shared-secret":
 			return body.authMode;
 		default:
-			throw new Error(`Unsupported LocalNet auth mode: ${JSON.stringify(body)}`);
+			throw new Error(
+				`Unsupported LocalNet auth mode: ${JSON.stringify(body)}`,
+			);
 	}
 }
 
@@ -377,8 +375,6 @@ async function generatedLocalNetAuth(): Promise<{
 			};
 		}
 	}
-
-	return assertNever(authMode);
 }
 
 async function withLocalNetAuth(
@@ -450,8 +446,6 @@ async function withLocalNetAuth(
 			};
 		}
 	}
-
-	return assertNever(scenario.auth);
 }
 
 function commandUserId(
@@ -476,8 +470,6 @@ function commandUserId(
 			return userId;
 		}
 	}
-
-	return assertNever(scenario.auth);
 }
 
 async function captureSandbox(): Promise<void> {
@@ -777,8 +769,7 @@ async function captureLocalNetTwoParticipants(): Promise<void> {
 		exerciseProviderEventKinds: eventKinds(exerciseProvider),
 		exerciseUserEventKinds: eventKinds(exerciseUser),
 		exerciseUninvolvedEventKinds: visibleEventKinds(exerciseUninvolved),
-		exerciseUninvolvedVisible:
-			visibleEventKinds(exerciseUninvolved).length > 0,
+		exerciseUninvolvedVisible: visibleEventKinds(exerciseUninvolved).length > 0,
 	};
 
 	await writeJson(join(fixtureDir, "summary.json"), summary);
