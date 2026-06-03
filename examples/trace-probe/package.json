@@ -8,6 +8,10 @@
     "trace:sandbox": "bun scripts/capture.ts sandbox",
     "trace:localnet": "bun scripts/capture.ts localnet-two-participants",
     "trace:localnet-two-participants": "bun scripts/capture.ts localnet-two-participants",
+    "localnet": "bun localnet:start",
+    "localnet:start": "bun scripts/localnet.ts start",
+    "localnet:stop": "bun scripts/localnet.ts stop",
+    "localnet:clean": "bun scripts/localnet.ts clean",
     "localnet:status": "bun scripts/localnet.ts status",
     "sandbox": "bun scripts/sandbox.ts start"
   },
