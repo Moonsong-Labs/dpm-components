@@ -1,0 +1,16 @@
+{
+  "scenario": "localnet-two-participants",
+  "providerLedger": "localhost:3901",
+  "userLedger": "localhost:2901",
+  "plaintext": true,
+  "auth": {
+    "mode": "auto"
+  },
+  "uploadDar": true,
+  "parties": {
+    "operatorHint": "TraceProvider",
+    "counterpartyHint": "TraceUser"
+  },
+  "submitLedgerRole": "provider",
+  "exerciseLedgerRole": "user"
+}

@@ -2,10 +2,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "trace:sandbox": "bun scripts/capture.ts sandbox",
+    "trace:localnet": "bun scripts/capture.ts localnet-two-participants",
+    "trace:localnet-two-participants": "bun scripts/capture.ts localnet-two-participants",
+    "localnet:status": "bun scripts/localnet.ts status",
     "sandbox": "bun scripts/sandbox.ts start"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@types/bun": "^1.3.14"
   }
 }
