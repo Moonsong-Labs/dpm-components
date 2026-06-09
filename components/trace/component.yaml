@@ -1,0 +1,7 @@
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
+  commands:
+    - path: ./bin/trace
+      name: trace
+      desc: Inspect Daml ledger transactions
