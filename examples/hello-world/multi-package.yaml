@@ -4,5 +4,15 @@ packages:
   - ./test
 
 components:
+  - canton-open-source:3.5.1
+  - codegen:3.5.1
+  - damlc:3.5.1
+  - daml-new:3.5.1
+  - daml-script:3.5.1
+  - upgrade-check:3.5.1
+  - scribe:3.5.1
+  - daml-shell:3.5.1
   - name: hello-world
     path: ../../components/hello-world
+  - name: trace
+    path: ../../components/trace

@@ -1,7 +1,7 @@
 # for config file options, refer to
 # https://docs.digitalasset.com/build/3.5/dpm/configuration.html#project-configuration
 
-sdk-version: 3.5.1-rc3
+sdk-version: 3.5.1
 name: trace-probe-main
 source: daml
 version: 1.0.0
