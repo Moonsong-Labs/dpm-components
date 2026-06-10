@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+use crate::config::AuthMode;
+
 #[derive(Debug, Parser)]
 #[command(
     name = "trace",
@@ -76,6 +78,10 @@ pub struct ProfileAddArgs {
     /// Use plaintext Ledger API connections.
     #[arg(long, conflicts_with = "tls")]
     pub plaintext: bool,
+
+    /// Authentication mode for Ledger API requests.
+    #[arg(long, value_enum, default_value = "remote")]
+    pub auth_mode: AuthMode,
 
     /// OAuth2 issuer URL.
     #[arg(long)]

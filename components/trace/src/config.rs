@@ -15,6 +15,7 @@ use std::{
     path::PathBuf,
 };
 
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::cli::{ProfileAddArgs, ProfileFileArgs, ProfileShowArgs};
@@ -43,6 +44,9 @@ pub struct ProfilesFile {
 /// Non-secret connection and OAuth2 metadata for one trace profile.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Profile {
+    /// Authentication mode used for this participant connection.
+    #[serde(default = "default_auth_mode")]
+    pub auth_mode: AuthMode,
     /// Ledger API endpoint, including host and port.
     pub ledger: String,
     /// Whether the Ledger API connection should use TLS.
@@ -61,6 +65,23 @@ pub struct Profile {
     pub party: Vec<String>,
 }
 
+/// Authentication mode for a trace profile.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum AuthMode {
+    /// No Ledger API authentication is required, for example `dpm sandbox`.
+    None,
+    /// Canton Network LocalNet seeded clients are used for client credentials.
+    Localnet,
+    /// Browser-based Authorization Code with PKCE is used for remote nodes.
+    Remote,
+}
+
+/// Default auth mode for old profiles that predate this field.
+fn default_auth_mode() -> AuthMode {
+    AuthMode::Remote
+}
+
 /// Add or update a profile in the selected profile file.
 ///
 /// Values passed on the command line are used directly. Missing values are
@@ -69,15 +90,21 @@ pub fn add_profile(args: ProfileAddArgs) -> Result<(), String> {
     let path = write_profile_path(args.profile_file.clone(), args.global)?;
     let mut profiles = read_profiles_if_exists(&path)?;
     let profile = prompt_for_profile(&args)?;
+    let auth_mode = profile.auth_mode;
 
     profiles.profiles.insert(args.name.clone(), profile);
     write_profiles(&path, &profiles)?;
 
     println!("Saved profile '{}' to {}", args.name, path.display());
-    println!(
-        "Run `dpm trace login --profile {}` when you are ready to authenticate.",
-        args.name
-    );
+    match auth_mode {
+        AuthMode::None => println!("Profile '{}' does not require login.", args.name),
+        AuthMode::Localnet | AuthMode::Remote => {
+            println!(
+                "Run `dpm trace login --profile {}` when you are ready to authenticate.",
+                args.name
+            );
+        }
+    }
     Ok(())
 }
 
@@ -169,6 +196,7 @@ pub fn load_profile(name: String, profile_file: Option<PathBuf>) -> Result<Loade
 
 /// Build a complete profile from CLI arguments and interactive prompts.
 fn prompt_for_profile(args: &ProfileAddArgs) -> Result<Profile, String> {
+    let auth_mode = args.auth_mode;
     let ledger = required_field(
         args.ledger.clone(),
         "Ledger API address",
@@ -176,33 +204,10 @@ fn prompt_for_profile(args: &ProfileAddArgs) -> Result<Profile, String> {
         "This is the participant Ledger API endpoint the trace command will query.",
     )?;
     let tls = prompt_tls(args.tls, args.plaintext)?;
-    let issuer = required_field(
-        args.issuer.clone(),
-        "OAuth2 issuer URL",
-        None,
-        "This is the identity provider that will issue Ledger API access tokens.",
-    )?;
-    let client_id = required_field(
-        args.client_id.clone(),
-        "OAuth2 client id",
-        Some("dpm-trace"),
-        "This identifies the CLI application registered with the OAuth2 issuer.",
-    )?;
-    let audience = required_field(
-        args.audience.clone(),
-        "OAuth2 audience",
-        Some("https://canton.network.global"),
-        "This is the token audience expected by the participant Ledger API.",
-    )?;
-    let scopes = if args.scopes.is_empty() {
-        prompt_list(
-            "OAuth2 scopes, comma separated",
-            Some("openid"),
-            "These scopes are requested when the CLI opens the OAuth2 login flow.",
-        )?
-    } else {
-        args.scopes.clone()
-    };
+    let issuer = profile_issuer(args, auth_mode)?;
+    let client_id = profile_client_id(args, auth_mode, &issuer)?;
+    let audience = profile_audience(args, auth_mode)?;
+    let scopes = profile_scopes(args, auth_mode)?;
     let party = if args.parties.is_empty() {
         prompt_list(
             "Default parties, comma separated",
@@ -214,6 +219,7 @@ fn prompt_for_profile(args: &ProfileAddArgs) -> Result<Profile, String> {
     };
 
     Ok(Profile {
+        auth_mode,
         ledger,
         tls,
         issuer,
@@ -222,6 +228,83 @@ fn prompt_for_profile(args: &ProfileAddArgs) -> Result<Profile, String> {
         scopes,
         party,
     })
+}
+
+/// Resolve the issuer field according to the auth mode.
+fn profile_issuer(args: &ProfileAddArgs, auth_mode: AuthMode) -> Result<String, String> {
+    match auth_mode {
+        AuthMode::None => Ok(args.issuer.clone().unwrap_or_default()),
+        AuthMode::Localnet | AuthMode::Remote => required_field(
+            args.issuer.clone(),
+            "OAuth2 issuer URL",
+            None,
+            "This is the identity provider that will issue Ledger API access tokens.",
+        ),
+    }
+}
+
+/// Resolve the client id field according to the auth mode.
+fn profile_client_id(
+    args: &ProfileAddArgs,
+    auth_mode: AuthMode,
+    issuer: &str,
+) -> Result<String, String> {
+    if let Some(client_id) = args
+        .client_id
+        .clone()
+        .filter(|client_id| !client_id.trim().is_empty())
+    {
+        return Ok(client_id);
+    }
+
+    match auth_mode {
+        AuthMode::None => Ok(String::new()),
+        AuthMode::Localnet => Ok(default_localnet_client_id(issuer).to_owned()),
+        AuthMode::Remote => required_field(
+            None,
+            "OAuth2 client id",
+            Some("dpm-trace"),
+            "This identifies the CLI application registered with the OAuth2 issuer.",
+        ),
+    }
+}
+
+/// Resolve the audience field according to the auth mode.
+fn profile_audience(args: &ProfileAddArgs, auth_mode: AuthMode) -> Result<String, String> {
+    match auth_mode {
+        AuthMode::None => Ok(args.audience.clone().unwrap_or_default()),
+        AuthMode::Localnet | AuthMode::Remote => required_field(
+            args.audience.clone(),
+            "OAuth2 audience",
+            Some("https://canton.network.global"),
+            "This is the token audience expected by the participant Ledger API.",
+        ),
+    }
+}
+
+/// Resolve the OAuth scopes according to the auth mode.
+fn profile_scopes(args: &ProfileAddArgs, auth_mode: AuthMode) -> Result<Vec<String>, String> {
+    if !args.scopes.is_empty() {
+        return Ok(args.scopes.clone());
+    }
+
+    match auth_mode {
+        AuthMode::None => Ok(Vec::new()),
+        AuthMode::Localnet | AuthMode::Remote => prompt_list(
+            "OAuth2 scopes, comma separated",
+            Some("openid"),
+            "These scopes are requested when the CLI opens the OAuth2 login flow.",
+        ),
+    }
+}
+
+/// Choose the seeded LocalNet client id based on the issuer realm.
+fn default_localnet_client_id(issuer: &str) -> &'static str {
+    if issuer.trim_end_matches('/').ends_with("/AppUser") {
+        "app-user-validator"
+    } else {
+        "app-provider-validator"
+    }
 }
 
 /// Return an existing non-empty value or prompt until the user provides one.
