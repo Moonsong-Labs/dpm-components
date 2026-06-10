@@ -19,6 +19,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::{ProfileAddArgs, ProfileFileArgs, ProfileShowArgs};
 
+/// A profile resolved from a concrete profile file.
+#[derive(Debug)]
+pub struct LoadedProfile {
+    /// Name used to select this profile.
+    pub name: String,
+    /// File the profile was loaded from.
+    pub path: PathBuf,
+    /// Non-secret profile configuration.
+    pub profile: Profile,
+}
+
 /// Top-level representation of a trace profile TOML file.
 ///
 /// Profiles are stored under a `profiles` table keyed by profile name.
@@ -30,7 +41,7 @@ pub struct ProfilesFile {
 }
 
 /// Non-secret connection and OAuth2 metadata for one trace profile.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Profile {
     /// Ledger API endpoint, including host and port.
     pub ledger: String,
@@ -127,21 +138,33 @@ fn file_status(path: &PathBuf) -> &'static str {
 /// The output intentionally contains only the non-secret profile metadata, not
 /// any OAuth2 tokens.
 pub fn show_profile(args: ProfileShowArgs) -> Result<(), String> {
-    let path = read_profile_path(args.profile_file)?;
-    let profiles = read_profiles_if_exists(&path)?;
-    let profile = profiles.profiles.get(&args.name).ok_or_else(|| {
-        format!(
-            "profile '{}' was not found in {}",
-            args.name,
-            path.display()
-        )
-    })?;
+    let loaded = load_profile(args.name, args.profile_file)?;
 
     println!(
         "{}",
-        toml::to_string_pretty(profile).map_err(|error| error.to_string())?
+        toml::to_string_pretty(&loaded.profile).map_err(|error| error.to_string())?
     );
     Ok(())
+}
+
+/// Load a named profile from the selected profile file.
+///
+/// This is used by auth and future ledger commands so they share profile-file
+/// precedence with `profile show`.
+pub fn load_profile(name: String, profile_file: Option<PathBuf>) -> Result<LoadedProfile, String> {
+    let path = read_profile_path(profile_file)?;
+    let profiles = read_profiles_if_exists(&path)?;
+    let profile = profiles
+        .profiles
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| format!("profile '{}' was not found in {}", name, path.display()))?;
+
+    Ok(LoadedProfile {
+        name,
+        path,
+        profile,
+    })
 }
 
 /// Build a complete profile from CLI arguments and interactive prompts.

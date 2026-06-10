@@ -1,3 +1,4 @@
+mod auth;
 mod cli;
 mod config;
 
@@ -34,20 +35,8 @@ fn run() -> Result<(), String> {
             ProfileCommand::List(args) => config::list_profiles(args),
             ProfileCommand::Show(args) => config::show_profile(args),
         },
-        Some(Command::Login(args)) => {
-            println!(
-                "OAuth2 login for profile '{}' is not implemented yet.",
-                args.profile
-            );
-            Ok(())
-        }
-        Some(Command::Logout(args)) => {
-            println!(
-                "OAuth2 logout for profile '{}' is not implemented yet.",
-                args.profile
-            );
-            Ok(())
-        }
+        Some(Command::Login(args)) => auth::login(args),
+        Some(Command::Logout(args)) => auth::logout(args),
         None => {
             if cli.message.eq_ignore_ascii_case("hello there") {
                 println!("General Kenobi!");
