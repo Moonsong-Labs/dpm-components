@@ -1,32 +1,60 @@
+mod cli;
+mod config;
+
+use std::process::ExitCode;
+
 use clap::{CommandFactory, Parser};
 
-#[derive(Debug, Parser)]
-#[command(
-    name = "trace",
-    version,
-    about = "Inspect Daml ledger transactions",
-    long_about = "Inspect Daml ledger transactions through the participant Ledger API."
-)]
-struct Cli {
-    /// Optional message.
-    #[arg(long, default_value = "Be a darling and give me a 'Hello there'")]
-    message: String,
+use crate::cli::{Cli, Command, ProfileCommand};
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("error: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
-fn main() {
+fn run() -> Result<(), String> {
     if std::env::args_os().len() == 1 {
         let mut command = Cli::command();
-        command.print_help().expect("failed to print help");
+        command
+            .print_help()
+            .map_err(|error| format!("failed to print help: {error}"))?;
         println!();
-        return;
+        return Ok(());
     }
 
     let cli = Cli::parse();
-    if cli.message.eq_ignore_ascii_case("hello there") {
-        println!("General Kenobi!");
-        return;
-    } else {
-        println!("I was hoping for Kenobi. Why are YOU here?");
-        return;
+    match cli.command {
+        Some(Command::Profile { command }) => match command {
+            ProfileCommand::Add(args) => config::add_profile(args),
+            ProfileCommand::List(args) => config::list_profiles(args),
+            ProfileCommand::Show(args) => config::show_profile(args),
+        },
+        Some(Command::Login(args)) => {
+            println!(
+                "OAuth2 login for profile '{}' is not implemented yet.",
+                args.profile
+            );
+            Ok(())
+        }
+        Some(Command::Logout(args)) => {
+            println!(
+                "OAuth2 logout for profile '{}' is not implemented yet.",
+                args.profile
+            );
+            Ok(())
+        }
+        None => {
+            if cli.message.eq_ignore_ascii_case("hello there") {
+                println!("General Kenobi!");
+            } else {
+                println!("I was hoping for Kenobi. Why are YOU here?");
+            }
+            Ok(())
+        }
     }
 }
