@@ -72,11 +72,16 @@ pub fn add_profile(args: ProfileAddArgs) -> Result<(), String> {
 
 /// Print the profile names available in the selected profile file.
 pub fn list_profiles(args: ProfileFileArgs) -> Result<(), String> {
+    let explicit_profile_file = args.profile_file.clone();
     let path = read_profile_path(args.profile_file)?;
     let profiles = read_profiles_if_exists(&path)?;
 
     if profiles.profiles.is_empty() {
-        println!("No trace profiles found in {}", path.display());
+        if explicit_profile_file.is_some() {
+            println!("No trace profiles found in {}", path.display());
+        } else {
+            print_default_profile_locations()?;
+        }
         return Ok(());
     }
 
@@ -86,6 +91,35 @@ pub fn list_profiles(args: ProfileFileArgs) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Print the default profile lookup locations when no profiles are available.
+fn print_default_profile_locations() -> Result<(), String> {
+    let project_local = project_profile_path()?;
+
+    println!("No trace profiles found.");
+    println!("Checked profile files:");
+    println!(
+        "- project: {} ({})",
+        project_local.display(),
+        file_status(&project_local)
+    );
+
+    match optional_global_profile_path() {
+        Some(global) => println!("- global: {} ({})", global.display(), file_status(&global)),
+        None => println!("- global: DPM_HOME is not set"),
+    }
+
+    Ok(())
+}
+
+/// Return a short existence status for a profile file path.
+fn file_status(path: &PathBuf) -> &'static str {
+    if path.exists() {
+        "exists"
+    } else {
+        "missing"
+    }
 }
 
 /// Print a single profile as TOML.
@@ -264,9 +298,10 @@ fn read_profile_path(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
         return Ok(project_local);
     }
 
-    let global = global_profile_path()?;
-    if global.exists() {
-        return Ok(global);
+    if let Some(global) = optional_global_profile_path() {
+        if global.exists() {
+            return Ok(global);
+        }
     }
 
     Ok(project_local)
@@ -304,6 +339,13 @@ fn global_profile_path() -> Result<PathBuf, String> {
         .ok_or_else(|| "DPM_HOME is not set; pass --profile-file or omit --global".to_owned())?;
 
     Ok(dpm_home.join("trace").join("profiles.toml"))
+}
+
+/// Return the user-global profile path when `$DPM_HOME` is configured.
+fn optional_global_profile_path() -> Option<PathBuf> {
+    env::var_os("DPM_HOME")
+        .map(PathBuf::from)
+        .map(|dpm_home| dpm_home.join("trace").join("profiles.toml"))
 }
 
 /// Read and parse a profile file, returning an empty profile set if it is absent.
