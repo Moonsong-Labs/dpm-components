@@ -152,7 +152,22 @@ export async function buildProbe(): Promise<string> {
 	return probeDarPath;
 }
 
-export async function mainPackageId(darPath = probeDarPath): Promise<string> {
+type DarMainPackage = {
+	packageId: string;
+	name: string;
+	version: string;
+};
+
+type PackageDetails = {
+	package_id?: string;
+	packageId?: string;
+	name?: string;
+	version?: string;
+};
+
+async function inspectDarMainPackage(
+	darPath = probeDarPath,
+): Promise<DarMainPackage> {
 	const inspectors = [
 		["dpm", "inspect-dar", "--json", darPath],
 		["daml", "damlc", "inspect-dar", "--json", darPath],
@@ -162,15 +177,69 @@ export async function mainPackageId(darPath = probeDarPath): Promise<string> {
 		try {
 			const result = await runJson<Record<string, unknown>>(inspector);
 			const packageId = result.main_package_id ?? result.mainPackageId;
-			if (typeof packageId === "string" && packageId.length > 0) {
-				return packageId;
+			if (typeof packageId !== "string" || packageId.length === 0) {
+				continue;
+			}
+
+			const packages = result.packages as
+				| Record<string, { name?: string; version?: string }>
+				| undefined;
+			const metadata = packages?.[packageId];
+			if (
+				typeof metadata?.name === "string" &&
+				typeof metadata.version === "string"
+			) {
+				return {
+					packageId,
+					name: metadata.name,
+					version: metadata.version,
+				};
 			}
 		} catch {
 			// Try the next installed tool; SDK command names differ across versions.
 		}
 	}
 
-	throw new Error(`Could not inspect main package id for ${darPath}`);
+	throw new Error(`Could not inspect main package metadata for ${darPath}`);
+}
+
+export async function mainPackageId(darPath = probeDarPath): Promise<string> {
+	return (await inspectDarMainPackage(darPath)).packageId;
+}
+
+export async function listKnownPackages(
+	scenario: Scenario,
+	role: LedgerRole,
+): Promise<PackageDetails[]> {
+	const result = await ledgerRequest<{
+		package_details?: PackageDetails[];
+		packageDetails?: PackageDetails[];
+	}>(
+		scenario,
+		role,
+		"com.daml.ledger.api.v2.admin.PackageManagementService/ListKnownPackages",
+		{},
+	);
+
+	return result.package_details ?? result.packageDetails ?? [];
+}
+
+export async function resolvePackageIdOnLedger(
+	scenario: Scenario,
+	role: LedgerRole,
+	darPath: string,
+): Promise<string> {
+	const { packageId, name, version } = await inspectDarMainPackage(darPath);
+	const known = await listKnownPackages(scenario, role);
+	const match = known.find(
+		(details) => details.name === name && details.version === version,
+	);
+	const ledgerPackageId = match?.package_id ?? match?.packageId;
+	if (ledgerPackageId) {
+		return ledgerPackageId;
+	}
+
+	return packageId;
 }
 
 async function readTokenFile(path: string | undefined): Promise<string | undefined> {
@@ -365,7 +434,11 @@ export async function uploadDar(
 	} catch (error) {
 		if (error instanceof CommandError) {
 			const output = `${error.stdout}\n${error.stderr}`;
-			if (/already exists|ALREADY_EXISTS|PACKAGE.*EXISTS/i.test(output)) {
+			if (
+				/already exists|ALREADY_EXISTS|PACKAGE.*EXISTS|KNOWN_PACKAGE_VERSION/i.test(
+					output,
+				)
+			) {
 				return {
 					skipped: true,
 					reason: "DAR already uploaded",

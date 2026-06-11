@@ -15,6 +15,7 @@ import {
 	ledgerForRole,
 	mainPackageId,
 	projectRoot,
+	resolvePackageIdOnLedger,
 	type Scenario,
 	submitAccept,
 	submitCreate,
@@ -575,7 +576,6 @@ async function captureLocalNetTwoParticipants(): Promise<void> {
 	const scenario = await withLocalNetAuth(loadedScenario, fixtureDir);
 
 	const darPath = await buildProbe();
-	const packageId = await mainPackageId(darPath);
 
 	const providerVersion = await ledgerApiVersionForRole(scenario, "provider");
 	await writeJson(
@@ -598,6 +598,7 @@ async function captureLocalNetTwoParticipants(): Promise<void> {
 	const userBefore = await ledgerEndForRole(scenario, "user");
 	await writeJson(join(fixtureDir, "ledger-end-before-user.json"), userBefore);
 
+	let packageId = await mainPackageId(darPath);
 	if (scenario.uploadDar) {
 		await writeJson(
 			join(fixtureDir, "upload-dar-provider.json"),
@@ -607,6 +608,7 @@ async function captureLocalNetTwoParticipants(): Promise<void> {
 			join(fixtureDir, "upload-dar-user.json"),
 			await uploadDar(scenario, "user", darPath),
 		);
+		packageId = await resolvePackageIdOnLedger(scenario, "provider", darPath);
 	}
 
 	const runId = Date.now();
