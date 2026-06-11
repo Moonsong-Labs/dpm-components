@@ -12,9 +12,24 @@ use crate::config::AuthMode;
     long_about = "Inspect Daml ledger transactions through the participant Ledger API."
 )]
 pub struct Cli {
+    /// Ledger API update id to trace.
+    pub update_id: Option<String>,
+
     /// Optional message.
     #[arg(long, default_value = "Be a darling and give me a 'Hello there'")]
     pub message: String,
+
+    /// Profile name.
+    #[arg(long, default_value = "default")]
+    pub profile: String,
+
+    /// Use this profile file instead of the default lookup locations.
+    #[arg(long)]
+    pub profile_file: Option<PathBuf>,
+
+    /// Party used to scope the visible transaction view. Repeat the flag or pass a comma-separated list.
+    #[arg(long = "party", value_delimiter = ',')]
+    pub parties: Vec<String>,
 
     #[command(subcommand)]
     pub command: Option<Command>,
@@ -99,8 +114,8 @@ pub struct ProfileAddArgs {
     #[arg(long = "scope")]
     pub scopes: Vec<String>,
 
-    /// Default party. Can be passed more than once.
-    #[arg(long = "party")]
+    /// Default party. Repeat the flag or pass a comma-separated list.
+    #[arg(long = "party", value_delimiter = ',')]
     pub parties: Vec<String>,
 }
 

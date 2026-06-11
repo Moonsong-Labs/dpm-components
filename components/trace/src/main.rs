@@ -1,6 +1,7 @@
 mod auth;
 mod cli;
 mod config;
+mod ledger;
 
 use std::process::ExitCode;
 
@@ -38,12 +39,15 @@ fn run() -> Result<(), String> {
         Some(Command::Login(args)) => auth::login(args),
         Some(Command::Logout(args)) => auth::logout(args),
         None => {
-            if cli.message.eq_ignore_ascii_case("hello there") {
+            if cli.update_id.is_some() {
+                ledger::trace_update(&cli)
+            } else if cli.message.eq_ignore_ascii_case("hello there") {
                 println!("General Kenobi!");
+                Ok(())
             } else {
                 println!("I was hoping for Kenobi. Why are YOU here?");
+                Ok(())
             }
-            Ok(())
         }
     }
 }

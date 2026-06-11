@@ -83,6 +83,24 @@ pub fn logout(args: ProfileSelector) -> Result<(), String> {
     Ok(())
 }
 
+/// Return the stored Ledger API access token for an authenticated profile.
+pub fn access_token(profile_name: &str, profile: &Profile) -> Result<Option<String>, String> {
+    if profile.auth_mode == AuthMode::None {
+        return Ok(None);
+    }
+
+    let key = TokenKey::for_profile(profile_name, profile);
+    let store = KeychainTokenStore::new();
+    let token = store.get(&key)?.ok_or_else(|| {
+        format!(
+            "no stored token found for profile '{}'; run `dpm trace login --profile {}` first",
+            profile_name, profile_name
+        )
+    })?;
+
+    Ok(Some(token.access_token))
+}
+
 /// Run OAuth2 Authorization Code with PKCE for a remote profile.
 ///
 /// TODO: Test this flow against a real remote OAuth2 issuer and participant.
