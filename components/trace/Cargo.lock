@@ -968,6 +968,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "owo-colors"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1624,6 +1630,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "clap",
+ "owo-colors",
  "prost",
  "prost-types",
  "rand",

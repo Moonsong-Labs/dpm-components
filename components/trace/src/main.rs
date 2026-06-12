@@ -2,6 +2,7 @@ mod auth;
 mod cli;
 mod config;
 mod ledger;
+mod style;
 
 use std::process::ExitCode;
 

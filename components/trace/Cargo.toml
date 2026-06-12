@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 base64 = "0.22.1"
+owo-colors = "4.2.0"
 clap = { version = "4.6.1", features = ["derive"] }
 prost = "0.14.4"
 prost-types = "0.14.4"
