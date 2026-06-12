@@ -18,7 +18,10 @@ use std::{
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::cli::{ProfileAddArgs, ProfileFileArgs, ProfileShowArgs};
+use crate::{
+    cli::{ProfileAddArgs, ProfileFileArgs, ProfileShowArgs},
+    style,
+};
 
 /// A profile resolved from a concrete profile file.
 #[derive(Debug)]
@@ -77,6 +80,17 @@ pub enum AuthMode {
     Remote,
 }
 
+impl AuthMode {
+    /// Return the TOML/CLI string representation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AuthMode::None => "none",
+            AuthMode::Localnet => "localnet",
+            AuthMode::Remote => "remote",
+        }
+    }
+}
+
 /// Default auth mode for old profiles that predate this field.
 fn default_auth_mode() -> AuthMode {
     AuthMode::Remote
@@ -95,15 +109,20 @@ pub fn add_profile(args: ProfileAddArgs) -> Result<(), String> {
     profiles.profiles.insert(args.name.clone(), profile);
     write_profiles(&path, &profiles)?;
 
-    println!("Saved profile '{}' to {}", args.name, path.display());
+    style::print_success(format!(
+        "Saved profile '{}' to {}",
+        style::profile_name(&args.name),
+        style::path(&path.display().to_string())
+    ));
     match auth_mode {
-        AuthMode::None => println!("Profile '{}' does not require login.", args.name),
-        AuthMode::Localnet | AuthMode::Remote => {
-            println!(
-                "Run `dpm trace login --profile {}` when you are ready to authenticate.",
-                args.name
-            );
-        }
+        AuthMode::None => style::print_info(format!(
+            "Profile '{}' does not require login.",
+            style::profile_name(&args.name)
+        )),
+        AuthMode::Localnet | AuthMode::Remote => style::print_hint(format!(
+            "Run {} when you are ready to authenticate.",
+            style::command(&format!("dpm trace login --profile {}", args.name))
+        )),
     }
     Ok(())
 }
@@ -116,16 +135,33 @@ pub fn list_profiles(args: ProfileFileArgs) -> Result<(), String> {
 
     if profiles.profiles.is_empty() {
         if explicit_profile_file.is_some() {
-            println!("No trace profiles found in {}", path.display());
+            style::print_warning(format!(
+                "No trace profiles found in {}",
+                style::path(&path.display().to_string())
+            ));
         } else {
             print_default_profile_locations()?;
         }
         return Ok(());
     }
 
-    println!("Profiles in {}:", path.display());
-    for name in profiles.profiles.keys() {
-        println!("- {name}");
+    println!("{}", style::heading("📇 Profiles"));
+    println!(
+        "  {} : {}",
+        style::label("Source"),
+        style::path(&path.display().to_string())
+    );
+    println!();
+
+    for (name, profile) in &profiles.profiles {
+        let tls = if profile.tls { "tls" } else { "plaintext" };
+        println!(
+            "  • {} ({}) → {} [{}]",
+            style::profile_name(name),
+            style::auth_mode(profile.auth_mode.as_str()),
+            style::value(&profile.ledger),
+            style::dim(tls)
+        );
     }
 
     Ok(())
@@ -135,20 +171,30 @@ pub fn list_profiles(args: ProfileFileArgs) -> Result<(), String> {
 fn print_default_profile_locations() -> Result<(), String> {
     let project_local = project_profile_path()?;
 
-    println!("No trace profiles found.");
-    println!("Checked profile files:");
-    println!(
-        "- project: {} ({})",
-        project_local.display(),
-        file_status(&project_local)
-    );
-
+    println!("{}", style::heading("📇 Profiles"));
+    style::print_warning("No trace profiles found.");
+    println!("{}", style::label("Checked profile files"));
+    print_profile_location("project", &project_local);
     match optional_global_profile_path() {
-        Some(global) => println!("- global: {} ({})", global.display(), file_status(&global)),
-        None => println!("- global: DPM_HOME is not set"),
+        Some(global) => print_profile_location("global", &global),
+        None => println!(
+            "  • {} : {}",
+            style::label("global"),
+            style::dim("DPM_HOME is not set")
+        ),
     }
 
     Ok(())
+}
+
+/// Print one profile lookup location and its status.
+fn print_profile_location(label: &str, path: &PathBuf) {
+    println!(
+        "  • {} : {} ({})",
+        style::label(label),
+        style::path(&path.display().to_string()),
+        style::dim(file_status(path))
+    );
 }
 
 /// Return a short existence status for a profile file path.
@@ -166,12 +212,80 @@ fn file_status(path: &PathBuf) -> &'static str {
 /// any OAuth2 tokens.
 pub fn show_profile(args: ProfileShowArgs) -> Result<(), String> {
     let loaded = load_profile(args.name, args.profile_file)?;
-
-    println!(
-        "{}",
-        toml::to_string_pretty(&loaded.profile).map_err(|error| error.to_string())?
-    );
+    render_profile(&loaded);
     Ok(())
+}
+
+/// Render one profile as a readable summary.
+fn render_profile(loaded: &LoadedProfile) {
+    println!("{}", style::heading("👤 Profile"));
+    print_profile_field("Name", style::profile_name(&loaded.name));
+    print_profile_field("Source", style::path(&loaded.path.display().to_string()));
+    println!();
+    println!("{}", style::heading("⚙️  Connection"));
+    print_profile_field(
+        "Auth mode",
+        style::auth_mode(loaded.profile.auth_mode.as_str()),
+    );
+    print_profile_field("Ledger", style::value(&loaded.profile.ledger));
+    print_profile_field(
+        "Transport",
+        style::value(if loaded.profile.tls {
+            "TLS"
+        } else {
+            "plaintext"
+        }),
+    );
+    print_optional_profile_field(
+        "Issuer",
+        non_empty(&loaded.profile.issuer).map(style::value),
+    );
+    print_optional_profile_field(
+        "Client ID",
+        non_empty(&loaded.profile.client_id).map(style::value),
+    );
+    print_optional_profile_field(
+        "Audience",
+        non_empty(&loaded.profile.audience).map(style::value),
+    );
+    print_optional_profile_field(
+        "Scopes",
+        (!loaded.profile.scopes.is_empty())
+            .then(|| style::value(&loaded.profile.scopes.join(", "))),
+    );
+    print_optional_profile_field(
+        "Parties",
+        (!loaded.profile.party.is_empty()).then(|| {
+            loaded
+                .profile
+                .party
+                .iter()
+                .map(|party| style::party(party))
+                .collect::<Vec<_>>()
+                .join(", ")
+        }),
+    );
+}
+
+/// Print one styled profile field.
+fn print_profile_field(label: &str, value: String) {
+    println!("  {} : {value}", style::label(&format!("{label:10}")));
+}
+
+/// Print one optional styled profile field.
+fn print_optional_profile_field(label: &str, value: Option<String>) {
+    if let Some(value) = value {
+        print_profile_field(label, value);
+    }
+}
+
+/// Return a string only when the value is not empty.
+fn non_empty(value: &str) -> Option<&str> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
 }
 
 /// Load a named profile from the selected profile file.
@@ -324,7 +438,7 @@ fn required_field(
             return Ok(answer);
         }
 
-        println!("{label} is required.");
+        style::print_warning(format!("{label} is required."));
     }
 }
 
@@ -338,13 +452,16 @@ fn prompt_tls(tls: bool, plaintext: bool) -> Result<bool, String> {
         return Ok(false);
     }
 
-    println!("This controls whether the Ledger API connection uses transport security.");
+    println!(
+        "{}",
+        style::dim("This controls whether the Ledger API connection uses transport security.")
+    );
     loop {
         let answer = prompt("Use TLS?", Some("n"), None)?;
         match answer.to_ascii_lowercase().as_str() {
             "" | "n" | "no" => return Ok(false),
             "y" | "yes" => return Ok(true),
-            _ => println!("Please answer yes or no."),
+            _ => style::print_warning("Please answer yes or no."),
         }
     }
 }
@@ -366,12 +483,12 @@ fn prompt_list(
 /// Prompt for a single string value, returning the default when input is empty.
 fn prompt(label: &str, default: Option<&str>, explanation: Option<&str>) -> Result<String, String> {
     if let Some(explanation) = explanation {
-        println!("{explanation}");
+        println!("{}", style::dim(explanation));
     }
 
     match default {
-        Some(default) => print!("{label} [{default}]: "),
-        None => print!("{label} []: "),
+        Some(default) => print!("{} [{}]: ", style::label(label), style::dim(default)),
+        None => print!("{} []: ", style::label(label)),
     }
     io::stdout()
         .flush()

@@ -14,7 +14,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("error: {error}");
+            style::print_error(error);
             ExitCode::FAILURE
         }
     }
@@ -43,10 +43,13 @@ fn run() -> Result<(), String> {
             if cli.update_id.is_some() {
                 ledger::trace_update(&cli)
             } else if cli.message.eq_ignore_ascii_case("hello there") {
-                println!("General Kenobi!");
+                println!("{}", style::heading("✨ General Kenobi!"));
                 Ok(())
             } else {
-                println!("I was hoping for Kenobi. Why are YOU here?");
+                println!(
+                    "{}",
+                    style::warning("I was hoping for Kenobi. Why are YOU here?")
+                );
                 Ok(())
             }
         }

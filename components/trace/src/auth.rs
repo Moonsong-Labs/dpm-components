@@ -19,6 +19,7 @@ use url::Url;
 use crate::{
     cli::ProfileSelector,
     config::{self, AuthMode, LoadedProfile, Profile},
+    style,
 };
 
 /// Keychain service name used for all trace CLI token records.
@@ -50,10 +51,10 @@ pub fn login(args: ProfileSelector) -> Result<(), String> {
 
     match loaded.profile.auth_mode {
         AuthMode::None => {
-            println!(
+            style::print_info(format!(
                 "Profile '{}' uses auth_mode = \"none\"; no login is required.",
-                loaded.name
-            );
+                style::profile_name(&loaded.name)
+            ));
             Ok(())
         }
         AuthMode::Localnet => login_localnet(loaded),
@@ -65,10 +66,10 @@ pub fn login(args: ProfileSelector) -> Result<(), String> {
 pub fn logout(args: ProfileSelector) -> Result<(), String> {
     let loaded = load_selected_profile(args)?;
     if loaded.profile.auth_mode == AuthMode::None {
-        println!(
+        style::print_info(format!(
             "Profile '{}' uses auth_mode = \"none\"; no stored tokens need to be removed.",
-            loaded.name
-        );
+            style::profile_name(&loaded.name)
+        ));
         return Ok(());
     }
 
@@ -76,10 +77,10 @@ pub fn logout(args: ProfileSelector) -> Result<(), String> {
     let store = KeychainTokenStore::new();
 
     store.delete(&key)?;
-    println!(
+    style::print_success(format!(
         "Removed stored OAuth2 tokens for profile '{}' from the OS keychain.",
-        loaded.name
-    );
+        style::profile_name(&loaded.name)
+    ));
     Ok(())
 }
 
@@ -130,12 +131,24 @@ fn login_remote(loaded: LoadedProfile) -> Result<(), String> {
         &code_challenge,
     )?;
 
-    println!("Opening browser to authenticate profile '{}'.", loaded.name);
-    println!("Resolved profile from {}", loaded.path.display());
-    println!("If the browser does not open, visit:\n{auth_url}");
+    println!("{}", style::heading("🌐 Remote login"));
+    style::print_info(format!(
+        "Opening browser to authenticate profile '{}'.",
+        style::profile_name(&loaded.name)
+    ));
+    println!(
+        "  {} : {}",
+        style::label("Source"),
+        style::path(&loaded.path.display().to_string())
+    );
+    println!(
+        "  {} : {}",
+        style::label("Auth URL"),
+        style::hint(auth_url.as_str())
+    );
 
     if let Err(error) = webbrowser::open(auth_url.as_str()) {
-        println!("Could not open browser automatically: {error}");
+        style::print_warning(format!("Could not open browser automatically: {error}"));
     }
 
     let code = wait_for_callback(listener, &state)?;
@@ -148,10 +161,10 @@ fn login_remote(loaded: LoadedProfile) -> Result<(), String> {
     )?;
     store.put(&key, &token)?;
 
-    println!(
+    style::print_success(format!(
         "Authenticated profile '{}' and stored tokens in the OS keychain.",
-        loaded.name
-    );
+        style::profile_name(&loaded.name)
+    ));
     Ok(())
 }
 
@@ -165,11 +178,13 @@ fn login_localnet(loaded: LoadedProfile) -> Result<(), String> {
 
     store.put(&key, &token)?;
 
-    println!(
-        "Authenticated LocalNet profile '{}' using seeded client '{}'.",
-        loaded.name, localnet_client.client_id
-    );
-    println!("Stored tokens in the OS keychain.");
+    println!("{}", style::heading("🔐 LocalNet login"));
+    style::print_success(format!(
+        "Authenticated profile '{}' using seeded client '{}'.",
+        style::profile_name(&loaded.name),
+        style::command(&localnet_client.client_id)
+    ));
+    style::print_info("Stored tokens in the OS keychain.");
     Ok(())
 }
 
