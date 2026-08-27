@@ -109,6 +109,7 @@ Provider and user update files should contain transaction events because those p
 ## Troubleshooting
 
 - `Expected .env.local`: run `make setup` once in `cn-quickstart/quickstart`.
+- `target dpm-sdk version not installed`: LocalNet goes through `cn-quickstart`, so this example must use the same Daml SDK that Quickstart pins. Read `sdk-version` in `cn-quickstart/quickstart/daml/licensing/daml.yaml` (also `DAML_RUNTIME_VERSION` in `.env`), then `dpm install` that version. Do not bump Quickstart to whatever SDK is active in this repository; keep this repository in step with Quickstart instead.
 - Java `26.0.1` Gradle failure: use JDK 17 or 21 for Quickstart, usually via `.envrc` and `direnv allow`.
 - `direnv is not available`: install `direnv`, then run `direnv allow` in `cn-quickstart/quickstart`.
 - `Unauthenticated`: check LocalNet is running and `auth-mode.json` can be generated.
