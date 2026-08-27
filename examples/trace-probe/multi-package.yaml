@@ -3,13 +3,13 @@ packages:
   - ./test
 
 components:
-  - canton-open-source:3.5.12
+  - canton-open-source:3.5.6
   - codegen:3.5.2
   - damlc:3.5.2
   - daml-new:3.5.2
   - daml-script:3.5.2
   - upgrade-check:3.5.2
-  - scribe:3.5.7
+  - scribe:3.5.2
   - daml-shell:3.5.1
   - name: trace
     path: ../../components/trace
